@@ -1,6 +1,7 @@
 #user changes
-INCLUDES=-I$(HOME)/Programs/uhd/include/
-LIBS=-L$(HOME)/Programs/uhd/lib/ -lboost_system
+#INCLUDES=-I$(HOME)/Programs/uhd/include/
+#LIBS=-L$(HOME)/Programs/uhd/lib/ -lboost_system -luhd
+LIBS=-lboost_system -lboost_program_options -luhd
 
 #maybe change
 CXX=g++
@@ -11,28 +12,20 @@ RM=rm -f
 SRCS=src/main.cpp
 OBJS=$(subst src/,bin/,$(subst .cpp,.o,$(SRCS)))
 
-bin/tempAtk: $(OBJS)
-	$(CXX) $(CFLAGS) -o bin/tempAtk $(OBJS) $(LIBS)
+tempAtk: $(OBJS)
+	$(CXX) $(INCLUDES) -o tempAtk $(OBJS) $(CFLAGS) $(LIBS)
 
-all: bin/tempAtk 
+all: bin/tempAtk
 
-#depend: .depend
-#
-#.depend: $(SRCS)
-#	$(RM) .depend
-#	$(CXX) -o -MM $^>>./.depend; $(INCLUDES) $(CFLAGS) $(LIBS)
 
 bin/main.o: src/main.cpp
 	$(CXX) $(INCLUDES) -o bin/main.o -c src/main.cpp $(CFLAGS) $(LIBS)
-
 
 clean:
 	$(RM) $(OBJS)
 
 distclean: clean
-	$(RM) bin/tempAtk
-	#$(RM) .depend
+	$(RM) tempAtk
 
 run:
-	bin/tempAtk
-#include .depend
+	tempAtk

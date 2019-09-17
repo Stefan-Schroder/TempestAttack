@@ -1,7 +1,7 @@
 #user changes
 #INCLUDES=-I$(HOME)/Programs/uhd/include/
 #LIBS=-L$(HOME)/Programs/uhd/lib/ -lboost_system -luhd
-LIBS=-lboost_system -lboost_program_options -luhd
+LIBS=-lboost_system -lboost_program_options -luhd -lopencv_core -lopencv_imgproc -lopencv_videoio -lopencv_highgui -lopencv_imgcodecs
 
 #maybe change
 CXX=g++
@@ -9,17 +9,23 @@ CFLAGS=-std=c++11
 RM=rm -f
 
 #done change
-SRCS=src/main.cpp
+SRCS=src/interface.cpp src/tempest.cpp src/frameStream.cpp
 OBJS=$(subst src/,bin/,$(subst .cpp,.o,$(SRCS)))
 
 tempAtk: $(OBJS)
-	$(CXX) $(INCLUDES) -o tempAtk $(OBJS) $(CFLAGS) $(LIBS)
+	$(CXX) -o tempAtk $(OBJS) $(CFLAGS) $(LIBS)
 
 all: bin/tempAtk
 
 
-bin/main.o: src/main.cpp
-	$(CXX) $(INCLUDES) -o bin/main.o -c src/main.cpp $(CFLAGS) $(LIBS)
+bin/interface.o: src/interface.cpp
+	$(CXX) -o bin/interface.o -c src/interface.cpp $(CFLAGS) $(LIBS)
+
+bin/tempest.o: src/tempest.cpp src/tempest.h
+	$(CXX) -o bin/tempest.o -c src/tempest.cpp $(CFLAGS) $(LIBS)
+
+bin/frameStream.o: src/frameStream.cpp src/frameStream.h
+	$(CXX) -o bin/frameStream.o -c src/frameStream.cpp $(CFLAGS) $(LIBS)
 
 clean:
 	$(RM) $(OBJS)

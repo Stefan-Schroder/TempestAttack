@@ -1,4 +1,5 @@
 .vscode
 .swp*
 bin/
+data/
 tempAtk

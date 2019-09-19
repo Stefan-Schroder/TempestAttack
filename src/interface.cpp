@@ -10,6 +10,7 @@
 #include <thread>
 #include <string>
 #include "tempest.h"
+#include "resconvert.h"
 
 namespace ops = boost::program_options;
 using namespace std;
@@ -76,7 +77,8 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
     std::string addr, file, ant, subdev, ref, res_string, input_file;
     size_t channel;
     double rate, freq, gain, bw, lo_offset, refresh, setup_time, overlap;
-    int multi, average_amount, width, height, frame_ignore;
+    int multi, average_amount, width, height, frame_ignore, shift_max;
+    bool exact_resolution = false;
 
     // Handeling commandline ops
     ops::options_description desc("Available Options");
@@ -101,7 +103,9 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         ("overlap",     ops::value<double>(&overlap)->          default_value(0.5),                 "overlap between the sub-bands as a percentage (0.9 mean 90% of band A and B are the same)")
         ("input",       ops::value<std::string>(&input_file),                                       "filename of raw short IQ samples, used instead of receiver")
         ("ignore",      ops::value<int>(&frame_ignore)->        default_value(0),                   "specify how many frames to ignore from the received data (can help in certain cases)")
+        ("max_shift",   ops::value<int>(&shift_max)->           default_value(200),                 "maximum amount each frame can shift to align each other (higher amount make it slower)")
         ("v",                                                                                       "print all information")
+        ("x",                                                                                       "Use the unconverted resolution entered")
     ;
 
     // clang-format on
@@ -121,10 +125,21 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
     // ============================  Set variables ================================
 
     verbose = var_map.count("v") > 0;
+    exact_resolution = var_map.count("x");
+
 
     // string resolution to int
-    width = stoi(res_string.substr(0,res_string.find('x')));
-    height = stoi(res_string.substr(res_string.find('x')+1));
+    if(!exact_resolution){
+        height = tmpst::getHeight(res_string,refresh);
+        width = tmpst::getWidth(res_string,refresh);
+        if(height == 0 || width == 0){
+            cerr << "Resolution does not exist. If you are sure this is the resolution enable --x (exact resolution)" << endl;
+            return -1;
+        }
+    }else {
+        width = stoi(res_string.substr(0,res_string.find('x')));
+        height = stoi(res_string.substr(res_string.find('x')+1));
+    }
     if(verbose) cout << "width: " << width << " height: " << height << endl;
 
     // ============ no input file ===================
@@ -212,12 +227,12 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         }
 
         // Transmit data to be processed
-        main_tempest = new tmpst::tempest(usrp, file, width, height, refresh, multi, average_amount, overlap, freq, rate, lo_offset, channel ,frame_ignore, verbose); 
+        main_tempest = new tmpst::tempest(usrp, file, width, height, refresh, multi, average_amount, overlap, freq, rate, lo_offset, channel ,frame_ignore, shift_max, verbose); 
 
 
     }else{
         // Reading in a file
-        main_tempest = new tmpst::tempest(input_file, file, width, height, refresh, average_amount, rate, frame_ignore, verbose);
+        main_tempest = new tmpst::tempest(input_file, file, width, height, refresh, average_amount, rate, frame_ignore, shift_max, verbose);
 
     }
 

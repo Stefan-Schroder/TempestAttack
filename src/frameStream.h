@@ -4,9 +4,13 @@
 #include <uhd/usrp/multi_usrp.hpp>
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <vector>
+
 
 namespace tmpst{
     class frameStream{
+
+
     private:
         cv::Mat all_samples;
         cv::Mat final_image;
@@ -17,10 +21,19 @@ namespace tmpst{
         double sample_rate;
 
         int frame_average;
-        int pixels_per_image;       // the number of pixels the sampling rate allows for
-
+        long pixels_per_image;       // the number of pixels the sampling rate allows for
 
         bool verbose;
+
+        cv::Mat makeMatrix(int start_index);
+        int shiftIndex(int index, int amount); //just normal summantion, but with error checking
+
+
+        //calculated
+        int total_sample_count;// the amount of samples in all_samples that are usable (not including extra frame)
+        void corrolateFrames(std::vector<int> & indices, int shift_max);
+        cv::Mat averageFrames(std::vector<int> & indices);
+        void centerImage(cv::Mat & image);
 
     public:
 
@@ -35,7 +48,7 @@ namespace tmpst{
 
         bool loadDataFile(std::string filename, int frame_ignore);
 
-        void processSamples();
+        void processSamples(int shift_max);
 
         bool saveImage(std::string filename);
 

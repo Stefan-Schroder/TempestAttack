@@ -19,6 +19,7 @@ namespace tmpst{
         double offset;
         size_t channel;
         int frame_ignore;
+        int max_shift;                          // maximum amount the frames can shift to align
 
         bool verbose;
 
@@ -41,6 +42,7 @@ namespace tmpst{
                 double offset,
                 size_t channel,
                 int frame_ignore,
+                int max_shift,
                 bool verbose);
 
         tempest(std::string input_file,
@@ -49,6 +51,7 @@ namespace tmpst{
                 int frame_av,
                 double sample_rate,
                 int frame_ignore,
+                int max_shift,
                 bool verbose);
 
         void process();

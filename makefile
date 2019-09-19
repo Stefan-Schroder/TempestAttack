@@ -9,7 +9,7 @@ CFLAGS=-std=c++11
 RM=rm -f
 
 #done change
-SRCS=src/interface.cpp src/tempest.cpp src/frameStream.cpp
+SRCS=src/interface.cpp src/tempest.cpp src/frameStream.cpp src/extraMath.cpp
 OBJS=$(subst src/,bin/,$(subst .cpp,.o,$(SRCS)))
 
 tempAtk: $(OBJS)
@@ -17,8 +17,7 @@ tempAtk: $(OBJS)
 
 all: bin/tempAtk
 
-
-bin/interface.o: src/interface.cpp
+bin/interface.o: src/interface.cpp src/resconvert.h
 	$(CXX) -o bin/interface.o -c src/interface.cpp $(CFLAGS) $(LIBS)
 
 bin/tempest.o: src/tempest.cpp src/tempest.h
@@ -26,6 +25,9 @@ bin/tempest.o: src/tempest.cpp src/tempest.h
 
 bin/frameStream.o: src/frameStream.cpp src/frameStream.h
 	$(CXX) -o bin/frameStream.o -c src/frameStream.cpp $(CFLAGS) $(LIBS)
+
+bin/extraMath.o: src/extraMath.cpp src/extraMath.h
+	$(CXX) -o bin/extraMath.o -c src/extraMath.cpp $(CFLAGS) $(LIBS)
 
 clean:
 	$(RM) $(OBJS)

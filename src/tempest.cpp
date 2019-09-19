@@ -1,6 +1,7 @@
 #include "tempest.h"
 #include <uhd/usrp/multi_usrp.hpp>
 #include "frameStream.h"
+#include <thread>
 
 using namespace std;
 
@@ -14,6 +15,7 @@ namespace tmpst{
                         double offset,
                         size_t channel,
                         int frame_ignore,
+                        int max_shift,
                         bool verbose):
 
                             usrp(usrp),
@@ -25,11 +27,12 @@ namespace tmpst{
                             offset(offset),
                             channel(channel),
                             frame_ignore(frame_ignore),
+                            max_shift(max_shift), 
                             verbose(verbose){
 
         full_spectrum_size = width*height*refresh;
         if(bandwidth_multiples==0){
-            bandwidth_multiples = full_spectrum_size/(sample_rate*(1-overlap));
+            bandwidth_multiples = full_spectrum_size/(sample_rate*(overlap));
             if(verbose) cout << "Number of bandwidths: " << bandwidth_multiples << endl;
         }
     }
@@ -40,6 +43,7 @@ namespace tmpst{
                         int frame_av,
                         double sample_rate,
                         int frame_ignore,
+                        int max_shift,
                         bool verbose):
 
                             input_file(input_file),
@@ -48,6 +52,7 @@ namespace tmpst{
                             frame_av_num(frame_av),
                             sample_rate(sample_rate),
                             frame_ignore(frame_ignore),
+                            max_shift(max_shift), 
                             verbose(verbose){
 
         full_spectrum_size = width*height*refresh;
@@ -80,12 +85,14 @@ namespace tmpst{
         while(begin!=end){
             if(from_file){
                 begin->loadDataFile(input_file, frame_ignore);
-                begin->processSamples();
+                begin->processSamples(max_shift);
                 begin->saveImage(name);
 
             } else {
                 begin->loadDataRx(usrp, offset, channel, frame_ignore);
-                begin->processSamples();
+                begin->processSamples(max_shift);
+                begin->saveImage(name);
+
             }
 
 

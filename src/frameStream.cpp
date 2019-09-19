@@ -14,6 +14,10 @@ using namespace std;
 
 namespace tmpst{
 
+    // ===================================================================================
+    // =============================== INITIALIZERS ======================================
+    // ===================================================================================
+
     frameStream::frameStream() {};
     frameStream::frameStream( int width, int height, 
                         double refresh, 
@@ -38,6 +42,10 @@ namespace tmpst{
 
         total_sample_count = pixels_per_image*frame_average;
     }
+
+    // ===================================================================================
+    // =============================== LOADING DATA ======================================
+    // ===================================================================================
 
     bool frameStream::loadDataFile(string filename, int frame_ignore){
         cout << filename << endl;
@@ -137,13 +145,20 @@ namespace tmpst{
 
     }
 
+    // ===================================================================================
+    // ============================== SAMPLE PROCESSORS ==================================
+    // ===================================================================================
+    
     /**
      * Main processing of images done here.
      * All of the samples, captured either by receiver of input file are processed into one image.
      * This single image is the average of the average_amount of images given by the user.
      * The images are aligned then processed
+     *
+     * The function returns the amount their frames were shifted by.
+     * If the shifted amounts are inconcistant then it will return MAX_INT, which the parent will take as not found
      */
-    void frameStream::processSamples(int shift_max){
+    int frameStream::processSamples(int shift_max){
 
         vector<int> frame_starts(frame_average);
         for(int i=0; i<frame_average; i++){
@@ -153,35 +168,21 @@ namespace tmpst{
         //corrolate frames
         corrolateFrames(frame_starts, shift_max);
 
-        /* plot all frames
-        for(int i=0; i<frame_average; i++){
-            Mat one_frame = makeMatrix(frame_starts[i]);
-            if(one_frame.empty()) break;
-
-            Mat stretch = Mat(1,width*height, CV_16U);
-            resize(one_frame, stretch, Size(width*height,1));
-
-            final_image = stretch.reshape(0,height);
-
-            // normalize frame to usigned char
-            normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
-            saveImage(to_string(i)+"-frame");
-        }
-        */
-
-
-
         Mat one_frame = averageFrames(frame_starts);
+
         // stretch image to fit into final matrix resolution
         Mat stretch = Mat(1,width*height, CV_16U);
         resize(one_frame, stretch, Size(width*height,1));
 
         final_image = stretch.reshape(0,height);
+        //final_image = imageCopy;
 
-        shiftImage(final_image.clone(), final_image, 20, -30);
+        //Mat imageCopy = final_image.clone();
+        shiftImage(final_image.clone(), final_image, -300, -200);
 
         // normalize frame to usigned char
         normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
+
     }
 
     /**
@@ -253,6 +254,10 @@ namespace tmpst{
         if(verbose) cout << "ppi after: " << pixels_per_image << endl;
     }
 
+    /**
+     * Averages the frames from all_stream together to make the final array
+     * The average array is made using vector of starting indices of each frame
+     */
     Mat frameStream::averageFrames(std::vector<int> & indices){
         Mat sum_frames = Mat::zeros(1, pixels_per_image, CV_32F); //larger size to handle summantion
 
@@ -266,6 +271,10 @@ namespace tmpst{
 
         return sum_frames;
     }
+
+    // ===================================================================================
+    // ==================================== EXTRA  =======================================
+    // ===================================================================================
 
     bool frameStream::saveImage(string filename){
         imwrite("data/"+filename+"-"+to_string(frequency)+"-image.jpg", final_image);

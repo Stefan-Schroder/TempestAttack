@@ -73,7 +73,7 @@ namespace tmpst{
 
             tmpst::frameStream newFrame(width, height, refresh,
                                         band_center,
-                                        frame_av_num, sample_rate, verbose);
+                                        frame_av_num, sample_rate, !verbose);
 
             bands[i] = newFrame;
         }
@@ -81,45 +81,31 @@ namespace tmpst{
     }
 
     void tempest::loadData(){
-        /*
-        auto begin = bands.begin(), end = bands.end();
 
-        while(begin!=end){
-            if(from_file){
-                begin->loadDataFile(input_file, frame_ignore);
-                begin->processSamples(max_shift);
-                begin->saveImage(name);
-
-            } else {
-                begin->loadDataRx(usrp, offset, channel, frame_ignore);
-                begin->processSamples(max_shift);
-                begin->saveImage(name);
-
-            }
-
-
-            begin++;
-        }
-        */
         if(from_file){ // there can only be one band
+
             bands[0].loadDataFile(input_file, frame_ignore);
             int shifting = bands[0].processSamples(max_shift).first;
             cout << "tmpst: " << shifting << endl;
             bands[0].createFinalFrame(shifting);
             bands[0].saveImage(name);
+
         }else{
 
-            if(verbose) cout << endl << "Loading in data" << endl;
-            for(int i=0; i<bands.size(); i++){
-                bands[i].loadDataRx(usrp, offset, channel, frame_ignore);
-                
-            }
-
-            if(verbose) cout << endl << "Processing data." << endl;
 #pragma omp parallel for
             for(int i=0; i<bands.size(); i++){
+
+#pragma omp critical
+                {
+                if(verbose) cout << endl << "Loading in data for band " << i << endl;
+                bands[i].loadDataRx(usrp, offset, channel, frame_ignore);
+                if(verbose) cout << "Reading complete" << endl;
+                }
+
+                if(verbose) cout << endl << "Processing data." << endl;
+
                 pair<int, double> shift = bands[i].processSamples(max_shift);
-                if(verbose) cout << "Band " << i << " shifted by " << shift.first << " percentage of shifted frames" << shift.second << endl;
+                if(verbose) cout << "Band " << i << " shifted by " << shift.first << " percentage of shifted frames " << double(shift.second) << endl;
                 bands[i].createFinalFrame(shift.first);
                 bands[i].saveImage(name);
             }

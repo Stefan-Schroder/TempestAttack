@@ -188,8 +188,9 @@ namespace tmpst{
         }
 
         results.first = max_index;
-        results.second = max_value/frame_average;
+        results.second = double(max_value)/(frame_average-1);
 
+        cout << "========" << results.second << "========" << endl;
         return results;
     }
 
@@ -253,11 +254,6 @@ namespace tmpst{
             }
 
             if(verbose) cout << i << "\t" << best_shift << endl;
-        }
-
-        auto begin = shift_amount_map.begin(), end = shift_amount_map.end();
-        while(begin!=end){
-            cout << begin->first << ": " << (begin++)->second << endl;
         }
 
         return shift_amount_map;

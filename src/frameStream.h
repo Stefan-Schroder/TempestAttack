@@ -5,15 +5,21 @@
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <vector>
+#include <unordered_map>
 
 
 namespace tmpst{
     class frameStream{
 
     private:
+        // =============================== DATA SOURCES ========================================
         cv::Mat all_samples;
+        cv::Mat final_image;
+        cv::Mat final_mini_image;
 
-        // ================================ USER INPUT ========================================
+        std::vector<int> indices;
+
+        // =============================== USER SPECIFIC =======================================
         int width;
         int height;
         double refresh;
@@ -22,8 +28,6 @@ namespace tmpst{
         int frame_average;
         bool verbose;
 
-
-
         // ================================= CALCULATED =======================================
 
         
@@ -31,16 +35,15 @@ namespace tmpst{
         int total_sample_count;
 
         long pixels_per_image;       // the number of pixels the sampling rate allows for
-
-        cv::Mat final_image;
-        cv::Mat final_mini_image;
         
         // ========================= SAMPLE PROCESSORS Internal ===============================
 
         cv::Mat makeMatrix(int start_index);
         int shiftIndex(int index, int amount); //just normal summantion, but with error checking
-        void corrolateFrames(std::vector<int> & indices, int shift_max);
+        std::unordered_map<int, unsigned int> corrolateFrames(int shift_max);
         cv::Mat averageFrames(std::vector<int> & indices);
+
+        std::pair<int, double> modeWithPercent(std::unordered_map<int, unsigned int> map);
 
         void centerImage(cv::Mat & image);
         void writeMiniFrame(cv::Mat & samples);
@@ -64,7 +67,7 @@ namespace tmpst{
 
         // ============================== SAMPLE PROCESSORS ==================================
 
-        int processSamples(int shift_max);
+        std::pair<int, double> processSamples(int shift_max);
 
         void createFinalFrame(int shiftAmount);
 

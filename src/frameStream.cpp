@@ -8,6 +8,7 @@
 #include <iterator>
 #include <vector>
 #include "extraMath.h"
+#include "omp.h"
 
 using namespace cv;
 using namespace std; 
@@ -38,9 +39,10 @@ namespace tmpst{
         if(verbose) cout << "Samples to read in: " << sample_size << endl;
 
         all_samples = Mat::zeros(1,sample_size, CV_16U);
-        final_image = Mat::zeros(height, width, CV_8U);
+        indices = vector<int>(frame_average);
 
         total_sample_count = pixels_per_image*frame_average;
+
     }
 
     // ===================================================================================
@@ -156,33 +158,39 @@ namespace tmpst{
      * The images are aligned then processed
      *
      * The function returns the amount their frames were shifted by.
-     * If the shifted amounts are inconcistant then it will return MAX_INT, which the parent will take as not found
      */
-    int frameStream::processSamples(int shift_max){
+    pair<int, double> frameStream::processSamples(int shift_max){
 
-        vector<int> frame_starts(frame_average);
         for(int i=0; i<frame_average; i++){
-            frame_starts[i] = pixels_per_image*i;
+            indices[i] = pixels_per_image*i;
         }
 
         //corrolate frames
-        corrolateFrames(frame_starts, shift_max);
+        return modeWithPercent(corrolateFrames(shift_max));
 
-        Mat one_frame = averageFrames(frame_starts);
+    }
 
-        // stretch image to fit into final matrix resolution
-        Mat stretch = Mat(1,width*height, CV_16U);
-        resize(one_frame, stretch, Size(width*height,1));
+    pair<int, double> frameStream::modeWithPercent(unordered_map<int, unsigned int> map){
+        pair<int, double> results; // first is the shift, second the amount
 
-        final_image = stretch.reshape(0,height);
-        //final_image = imageCopy;
+        int max_index = 0;
+        unsigned int max_value = 0;
 
-        //Mat imageCopy = final_image.clone();
-        shiftImage(final_image.clone(), final_image, -300, -200);
+        auto begin = map.begin(), end = map.end();
 
-        // normalize frame to usigned char
-        normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
+        while(begin!=end){
+            if(begin->second > max_value){
+                max_index = begin->first;
+                max_value = begin->second;
+            }
 
+            begin++;
+        }
+
+        results.first = max_index;
+        results.second = max_value/frame_average;
+
+        return results;
     }
 
     /**
@@ -216,14 +224,15 @@ namespace tmpst{
 
     /**
      * corrolates the frames to that they line up (miss align due to error in refresh rate)
-     * !!NOTE: pixels_per_image CHANGES AFTER THIS IS RUN (straigtens image out)
      */
-    void frameStream::corrolateFrames(vector<int> & indices, int shift_max){
-        vector<int> shift_amount(frame_average);
-        shift_amount[0] = 0;
+    unordered_map<int, unsigned int> frameStream::corrolateFrames(int shift_max){
+        unordered_map<int, unsigned int> shift_amount_map; // cant be ordered because constantly changing
 
         //calculate the best shifts (first frame does not shift)
         if(verbose) cout << endl << "Frame:\tShifted" << endl;
+
+        //this parallelism may not be worth it
+#pragma omp parallel for
         for(int i=frame_average-1; i>=1; i--){
 
             double highest_corr = 0;
@@ -238,20 +247,63 @@ namespace tmpst{
                 }
             }
 
-            shift_amount[i] = best_shift;
+#pragma omp critical
+            {
+            shift_amount_map[best_shift]++;
+            }
+
             if(verbose) cout << i << "\t" << best_shift << endl;
         }
 
-        int total_shift = 0;
-        for(int i=1; i<frame_average; i++){
-            total_shift += shift_amount[i];
-
-            indices[i] += total_shift;
+        auto begin = shift_amount_map.begin(), end = shift_amount_map.end();
+        while(begin!=end){
+            cout << begin->first << ": " << (begin++)->second << endl;
         }
 
+        return shift_amount_map;
+
+    }
+
+    /**
+     * Shifts frames then makes them into into one frame.
+     * averageFrames is used for this.
+     * !!NOTE: pixels_per_image CHANGES AFTER THIS IS RUN (straigtens image out)
+     */
+    void frameStream::createFinalFrame(int shift_amount){
+        //shift frame
+        cout << "cff will shift by: " << shift_amount << endl;
+        int total_shift = 0;
+        for(int i=1; i<frame_average; i++){
+            total_shift += shift_amount;
+
+            indices[i] = shiftIndex(indices[i], total_shift);
+        }
+
+        //align frame
         if(verbose) cout << endl << "ppi before: " << pixels_per_image << endl;
         pixels_per_image = indices[1] - indices[0]; // SO BIG BRAIN
         if(verbose) cout << "ppi after: " << pixels_per_image << endl;
+
+        // average frames
+        Mat one_frame = averageFrames(indices);
+
+        //clear memory of all samples
+        all_samples.release();
+
+        // stretch image to fit into final matrix resolution
+        Mat stretch = Mat(1,width*height, CV_16U);
+        resize(one_frame, stretch, Size(width*height,1));
+
+        final_image = Mat::zeros(height, width, CV_8U);
+
+        final_image = stretch.reshape(0,height);
+        //final_image = imageCopy;
+
+        //Mat imageCopy = final_image.clone();
+        shiftImage(final_image.clone(), final_image, -300, -200);
+
+        // normalize frame to usigned char
+        normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
     }
 
     /**
@@ -271,6 +323,7 @@ namespace tmpst{
 
         return sum_frames;
     }
+
 
     // ===================================================================================
     // ==================================== EXTRA  =======================================

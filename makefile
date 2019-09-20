@@ -1,7 +1,7 @@
 #user changes
 #INCLUDES=-I$(HOME)/Programs/uhd/include/
 #LIBS=-L$(HOME)/Programs/uhd/lib/ -lboost_system -luhd
-LIBS=-lboost_system -lboost_program_options -luhd -lopencv_core -lopencv_imgproc -lopencv_videoio -lopencv_highgui -lopencv_imgcodecs
+LIBS=-lboost_system -lboost_program_options -luhd -lopencv_core -lopencv_imgproc -lopencv_videoio -lopencv_highgui -lopencv_imgcodecs -fopenmp
 
 #maybe change
 CXX=g++
@@ -24,7 +24,7 @@ bin/tempest.o: src/tempest.cpp src/tempest.h
 	$(CXX) -o bin/tempest.o -c src/tempest.cpp $(CFLAGS) $(LIBS)
 
 bin/frameStream.o: src/frameStream.cpp src/frameStream.h
-	$(CXX) -o bin/frameStream.o -c src/frameStream.cpp $(CFLAGS) $(LIBS)
+	$(CXX) -o bin/frameStream.o -c src/frameStream.cpp $(CFLAGS) -lopenmp $(LIBS)
 
 bin/extraMath.o: src/extraMath.cpp src/extraMath.h
 	$(CXX) -o bin/extraMath.o -c src/extraMath.cpp $(CFLAGS) $(LIBS)

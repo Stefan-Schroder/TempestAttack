@@ -4,7 +4,8 @@
 
 namespace tmpst{
     double corrolation(const cv::Mat & one, const cv::Mat & two);
-    void shiftImage(cv::Mat image_in, cv::Mat & image_out, int x, int y); // shifts the image a certain amount left and right
+    void shiftImage(cv::Mat image_in, cv::Mat & image_out, int x, int y); 
+
 }
 
 #endif

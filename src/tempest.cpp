@@ -88,7 +88,7 @@ namespace tmpst{
             int shifting = bands[0].processSamples(max_shift).first;
             cout << "tmpst: " << shifting << endl;
             bands[0].createFinalFrame(shifting);
-            bands[0].saveImage(name);
+            bands[0].saveImage(name+to_string(bands[0].getFrequency()));
 
         }else{
 
@@ -107,14 +107,11 @@ namespace tmpst{
                 pair<int, double> shift = bands[i].processSamples(max_shift);
                 if(verbose) cout << "Band " << i << " shifted by " << shift.first << " percentage of shifted frames " << double(shift.second) << endl;
                 bands[i].createFinalFrame(shift.first);
-                bands[i].saveImage(name);
+                bands[i].saveImage(name+to_string(bands[i].getFrequency()));
             }
 
 
         }
-
-
-
     }
 
 

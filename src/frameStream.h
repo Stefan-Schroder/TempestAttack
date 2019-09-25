@@ -38,15 +38,15 @@ namespace tmpst{
         
         // ========================= SAMPLE PROCESSORS Internal ===============================
 
-        cv::Mat makeMatrix(int start_index);
+        cv::Mat makeMatrix(int start_index, cv::Mat & samples);
         int shiftIndex(int index, int amount); //just normal summantion, but with error checking
         std::unordered_map<int, unsigned int> corrolateFrames(int shift_max);
         cv::Mat averageFrames(std::vector<int> & indices);
 
         std::pair<int, double> modeWithPercent(std::unordered_map<int, unsigned int> map);
 
-        void centerImage(cv::Mat & image);
-        void writeMiniFrame(cv::Mat & samples);
+        std::pair<int,int> centerImage(cv::Mat & image);
+        float writeMiniFrame(cv::Mat & samples);
 
     public:
 
@@ -59,6 +59,7 @@ namespace tmpst{
                     double sample_rate,
                     bool verbose);
         
+        double getFrequency();
         // =============================== LOADING DATA ======================================
 
         bool loadDataRx(uhd::usrp::multi_usrp::sptr usrp, double offset, size_t channel, int frame_ignore);

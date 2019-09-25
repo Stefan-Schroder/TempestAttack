@@ -9,6 +9,7 @@
 #include <vector>
 #include "extraMath.h"
 #include "omp.h"
+#include <functional>
 
 using namespace cv;
 using namespace std; 
@@ -45,6 +46,7 @@ namespace tmpst{
 
     }
 
+    double frameStream::getFrequency(){ return frequency; }
     // ===================================================================================
     // =============================== LOADING DATA ======================================
     // ===================================================================================
@@ -163,7 +165,22 @@ namespace tmpst{
 
         for(int i=0; i<frame_average; i++){
             indices[i] = pixels_per_image*i;
+
+            // Save all frames
+            Mat one_frame = makeMatrix(indices[i], all_samples);
+            Mat stretch = Mat(1,width*height, CV_16U);
+            resize(one_frame, stretch, Size(width*height,1));
+            final_image = Mat::zeros(height, width, CV_8U);
+            final_image = stretch.reshape(0,height);
+            normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
+
+            saveImage(to_string(i)+"-before_shift");
+            final_image.release();
+            
+
+
         }
+
 
         //corrolate frames
         return modeWithPercent(corrolateFrames(shift_max));
@@ -197,19 +214,19 @@ namespace tmpst{
     /**
      * Uses all_samples and pixels_per_image, make use the indexes are valid
      */
-    Mat frameStream::makeMatrix(int start_index){
-        if(start_index<0 || start_index+pixels_per_image>=all_samples.cols){
+    Mat frameStream::makeMatrix(int start_index, Mat & samples){
+        if(start_index<0 || start_index+pixels_per_image>=samples.cols){
             cerr << "Index's are out of range" << endl;
             cerr << "Your range goes from:" << endl;
             cerr << start_index << "->" << start_index+pixels_per_image << endl;
             cerr << "All samples range goes from:" << endl;
-            cerr << 0 << "->" << all_samples.cols << endl;
+            cerr << 0 << "->" << samples.cols << endl;
 
             Mat empty;
             return empty;
         }
         else {
-            return all_samples.colRange(start_index, start_index+pixels_per_image);
+            return samples.colRange(start_index, start_index+pixels_per_image);
         }
 
     }
@@ -227,6 +244,18 @@ namespace tmpst{
      * corrolates the frames to that they line up (miss align due to error in refresh rate)
      */
     unordered_map<int, unsigned int> frameStream::corrolateFrames(int shift_max){
+        // Average all the samples to get rid of noise
+        int window = 10;
+        Mat average_filter = Mat::ones(1,window, CV_32F)/window;
+        average_filter = average_filter.mul(average_filter);
+
+        
+        Mat filtered_samples = Mat::ones(1, all_samples.cols, CV_32F);
+        filter2D(all_samples, filtered_samples, -1, average_filter, Point(0,0), 5.0, BORDER_REFLECT);
+
+        cout << "sizes of samples: " << all_samples.cols << ", " << filtered_samples.cols << endl;
+
+        // Start corrolation process
         unordered_map<int, unsigned int> shift_amount_map; // cant be ordered because constantly changing
 
         //calculate the best shifts (first frame does not shift)
@@ -240,8 +269,9 @@ namespace tmpst{
             int best_shift = 0;
 
             for(int j=-shift_max; j<=shift_max; j++){
-                Mat shifting_frame = makeMatrix(shiftIndex(indices[i],j));
-                double corr = corrolation(shifting_frame, makeMatrix(indices[i-1]));
+                Mat shifting_frame = makeMatrix(shiftIndex(indices[i],j), filtered_samples);
+                double corr = corrolation(shifting_frame, makeMatrix(indices[i-1], filtered_samples));
+                //if(abs(corr) > highest_corr){
                 if(corr > highest_corr){
                     highest_corr = corr;
                     best_shift = j;
@@ -251,6 +281,17 @@ namespace tmpst{
 #pragma omp critical
             {
             shift_amount_map[best_shift]++;
+
+
+            Mat one_frame = makeMatrix(shiftIndex(indices[i],best_shift), filtered_samples);
+            Mat stretch = Mat(1,width*height, CV_16U);
+            resize(one_frame, stretch, Size(width*height,1));
+            final_image = Mat::zeros(height, width, CV_8U);
+            final_image = stretch.reshape(0,height);
+            normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
+
+            saveImage(to_string(i)+"-after_shift");
+            final_image.release();
             }
 
             if(verbose) cout << i << "\t" << best_shift << endl;
@@ -283,6 +324,8 @@ namespace tmpst{
         // average frames
         Mat one_frame = averageFrames(indices);
 
+        float multiplier = writeMiniFrame(one_frame);
+
         //clear memory of all samples
         all_samples.release();
 
@@ -295,15 +338,18 @@ namespace tmpst{
         final_image = stretch.reshape(0,height);
         //final_image = imageCopy;
 
-        //Mat imageCopy = final_image.clone();
-        shiftImage(final_image.clone(), final_image, -300, -200);
-
         // normalize frame to usigned char
         normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
+
+        // Center image
+        pair<int, int> amount = centerImage(final_mini_image); // centers the smaller 
+
+        shiftImage(final_image.clone(), final_image, -amount.first*multiplier, -amount.second*multiplier);
+
     }
 
     /**
-     * Averages the frames from all_stream together to make the final array
+     * Averages the frames from all_samples together to make the final array
      * The average array is made using vector of starting indices of each frame
      */
     Mat frameStream::averageFrames(std::vector<int> & indices){
@@ -311,7 +357,7 @@ namespace tmpst{
 
         auto begin = indices.begin(), end = indices.end();
         while(begin!=end){
-            Mat frame = makeMatrix(*begin++);
+            Mat frame = makeMatrix(*begin++, all_samples);
             frame.convertTo(frame,CV_32F);
             sum_frames += frame/frame_average;
         }
@@ -326,9 +372,82 @@ namespace tmpst{
     // ===================================================================================
 
     bool frameStream::saveImage(string filename){
-        imwrite("data/"+filename+"-"+to_string(frequency)+"-image.jpg", final_image);
+        imwrite("data/"+filename+".jpg", final_image);
         return true;
     }
 
+    float frameStream::writeMiniFrame(Mat & samples){
+        //reduce the amount of pixels for miniframe
+        pair<int, int> reduced(width, height);
+
+        // reduction lambda
+        //auto reduce = [this](pair<int, int> frac)->pair<int,int>{
+        function<pair<int,int>(pair<int,int>)> reduce = [this, &reduce](pair<int, int> frac)->pair<int,int>{
+            for(int i=2; i<frac.first/2; i++){
+                if(frac.first%i==0 && frac.second%i==0){
+                    if(frac.first*frac.second/(i*i)<pixels_per_image)
+                        return frac;
+
+                    frac.first /= i;
+                    frac.second/= i;
+
+                    return reduce(frac);
+                }
+            }
+            return frac;
+
+        };
+
+        reduced = reduce(reduced);
+
+        if(verbose) cout << endl << "Smaller resolution is: " << reduced.first << "x" << reduced.second << endl;
+
+        // stretch image to fit into final matrix resolution
+        Mat stretch = Mat(1,reduced.first*reduced.second, CV_16U);
+        resize(samples, stretch, Size(reduced.first*reduced.second,1));
+
+        final_mini_image = Mat::zeros(reduced.second, reduced.first, CV_8U);
+
+        final_mini_image = stretch.reshape(0,reduced.second);
+
+        // normalize frame to usigned char
+        normalize(final_mini_image, final_mini_image, 0, 255, NORM_MINMAX, CV_8UC1);
+
+        //return the size ratio
+        return float(width)/float(reduced.first);
+    }
+
+    pair<int, int> frameStream::centerImage(Mat & image){
+        pair<int,int> minimums;
+        
+        // define filters
+        int xwindow = 100;
+        Mat xfilter = Mat::ones(1,xwindow, CV_8U)/xwindow;
+        xfilter = xfilter.mul(xfilter);
+        
+        int ywindow = 10;
+        Mat yfilter = Mat::ones(1,ywindow, CV_8U)/ywindow;
+        yfilter = yfilter.mul(yfilter);
+
+        // compute averages
+        Mat x_average, y_average; 
+        reduce(image, x_average, 0, CV_REDUCE_AVG);
+        reduce(image, y_average, 1, CV_REDUCE_AVG);
+        
+        // apply filters
+        filter2D(x_average, x_average.clone(), -1, xfilter, Point(-1,-1), 0.0, BORDER_REPLICATE);
+        filter2D(y_average, y_average.clone(), -1, yfilter, Point(-1,-1), 0.0, BORDER_REPLICATE);
+
+        double min, max;
+        Point min_location, max_location;
+
+        minMaxLoc(x_average, &min, &max, &min_location, &max_location);
+        minimums.first = min_location.x;
+
+        minMaxLoc(y_average, &min, &max, &min_location, &max_location);
+        minimums.second = min_location.y;
+
+        return minimums;
+    }
 
 }

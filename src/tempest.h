@@ -3,6 +3,7 @@
 #include <uhd/usrp/multi_usrp.hpp>
 #include <vector>
 #include "frameStream.h"
+#include "extraMath.h"
 
 namespace tmpst{
     class tempest{
@@ -54,10 +55,12 @@ namespace tmpst{
                 int max_shift,
                 bool verbose);
 
-        void process();
 
-        void loadData();
+        void initializeBands();
 
+        void processBands();
+
+        void combineBands();
 
     };
 }

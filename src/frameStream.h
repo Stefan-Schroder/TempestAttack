@@ -6,6 +6,9 @@
 #include <opencv2/imgcodecs.hpp>
 #include <vector>
 #include <unordered_map>
+#ifndef _TEMPEST_H_
+#include "extraMath.h"
+#endif
 
 
 namespace tmpst{
@@ -27,6 +30,7 @@ namespace tmpst{
         double sample_rate;
         int frame_average;
         bool verbose;
+        std::string output_directory;
 
         // ================================= CALCULATED =======================================
 
@@ -43,8 +47,6 @@ namespace tmpst{
         std::unordered_map<int, unsigned int> corrolateFrames(int shift_max);
         cv::Mat averageFrames(std::vector<int> & indices);
 
-        std::pair<int, double> modeWithPercent(std::unordered_map<int, unsigned int> map);
-
         std::pair<int,int> centerImage(cv::Mat & image);
         float writeMiniFrame(cv::Mat & samples);
 
@@ -57,7 +59,8 @@ namespace tmpst{
                     double refresh, double frequency, 
                     int frame_average,
                     double sample_rate,
-                    bool verbose);
+                    bool verbose,
+                    std::string dir_name);
         
         double getFrequency();
         // =============================== LOADING DATA ======================================
@@ -68,7 +71,7 @@ namespace tmpst{
 
         // ============================== SAMPLE PROCESSORS ==================================
 
-        std::pair<int, double> processSamples(int shift_max);
+        std::pair<int, unsigned int> processSamples(int shift_max);
 
         void createFinalFrame(int shiftAmount);
 

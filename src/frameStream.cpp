@@ -7,7 +7,6 @@
 #include <fstream>
 #include <iterator>
 #include <vector>
-#include "extraMath.h"
 #include "omp.h"
 #include <functional>
 
@@ -26,13 +25,15 @@ namespace tmpst{
                         double frequency, 
                         int frame_average,
                         double sample_rate,
-                        bool verbose):
+                        bool verbose,
+                        string dir_name):
 
                         width(width), height(height), refresh(refresh),
                         frequency(frequency),
                         frame_average(frame_average),
                         sample_rate(sample_rate),
-                        verbose(verbose){
+                        verbose(verbose),
+                        output_directory(dir_name){
 
         pixels_per_image = round(sample_rate/refresh);
 
@@ -52,7 +53,7 @@ namespace tmpst{
     // ===================================================================================
 
     bool frameStream::loadDataFile(string filename, int frame_ignore){
-        cout << filename << endl;
+        if(verbose) cout << filename << endl;
         //reading in file
         ifstream input_stream(filename.c_str(), ios::binary);
 
@@ -161,54 +162,30 @@ namespace tmpst{
      *
      * The function returns the amount their frames were shifted by.
      */
-    pair<int, double> frameStream::processSamples(int shift_max){
+    pair<int, unsigned int> frameStream::processSamples(int shift_max){
 
         for(int i=0; i<frame_average; i++){
             indices[i] = pixels_per_image*i;
 
             // Save all frames
-            Mat one_frame = makeMatrix(indices[i], all_samples);
-            Mat stretch = Mat(1,width*height, CV_16U);
-            resize(one_frame, stretch, Size(width*height,1));
-            final_image = Mat::zeros(height, width, CV_8U);
-            final_image = stretch.reshape(0,height);
-            normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
+            if(verbose){
+                Mat one_frame = makeMatrix(indices[i], all_samples);
+                Mat stretch = Mat(1,width*height, CV_16U);
+                resize(one_frame, stretch, Size(width*height,1));
+                final_image = Mat::zeros(height, width, CV_8U);
+                final_image = stretch.reshape(0,height);
+                normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
 
-            saveImage(to_string(i)+"-before_shift");
-            final_image.release();
-            
-
-
+                saveImage(to_string(i)+"-before_shift");
+                final_image.release();
+            }
         }
-
 
         //corrolate frames
-        return modeWithPercent(corrolateFrames(shift_max));
-
-    }
-
-    pair<int, double> frameStream::modeWithPercent(unordered_map<int, unsigned int> map){
-        pair<int, double> results; // first is the shift, second the amount
-
-        int max_index = 0;
-        unsigned int max_value = 0;
-
-        auto begin = map.begin(), end = map.end();
-
-        while(begin!=end){
-            if(begin->second > max_value){
-                max_index = begin->first;
-                max_value = begin->second;
-            }
-
-            begin++;
-        }
-
-        results.first = max_index;
-        results.second = double(max_value)/(frame_average-1);
-
-        cout << "========" << results.second << "========" << endl;
-        return results;
+        if(frame_average==1)
+            return make_pair(0,1);
+        else
+            return mapMode(corrolateFrames(shift_max));
     }
 
     /**
@@ -245,7 +222,7 @@ namespace tmpst{
      */
     unordered_map<int, unsigned int> frameStream::corrolateFrames(int shift_max){
         // Average all the samples to get rid of noise
-        int window = 10;
+        int window = 3;
         Mat average_filter = Mat::ones(1,window, CV_32F)/window;
         average_filter = average_filter.mul(average_filter);
 
@@ -253,9 +230,9 @@ namespace tmpst{
         Mat filtered_samples = Mat::ones(1, all_samples.cols, CV_32F);
         filter2D(all_samples, filtered_samples, -1, average_filter, Point(0,0), 5.0, BORDER_REFLECT);
 
-        cout << "sizes of samples: " << all_samples.cols << ", " << filtered_samples.cols << endl;
+        if(verbose) cout << "sizes of samples: " << all_samples.cols << ", " << filtered_samples.cols << endl;
 
-        // Start corrolation process
+        // ========Start corrolation process==========
         unordered_map<int, unsigned int> shift_amount_map; // cant be ordered because constantly changing
 
         //calculate the best shifts (first frame does not shift)
@@ -282,16 +259,17 @@ namespace tmpst{
             {
             shift_amount_map[best_shift]++;
 
+            if(verbose){ // save frames
+                Mat one_frame = makeMatrix(shiftIndex(indices[i],best_shift*i), filtered_samples);
+                Mat stretch = Mat(1,width*height, CV_16U);
+                resize(one_frame, stretch, Size(width*height,1));
+                final_image = Mat::zeros(height, width, CV_8U);
+                final_image = stretch.reshape(0,height);
+                normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
 
-            Mat one_frame = makeMatrix(shiftIndex(indices[i],best_shift), filtered_samples);
-            Mat stretch = Mat(1,width*height, CV_16U);
-            resize(one_frame, stretch, Size(width*height,1));
-            final_image = Mat::zeros(height, width, CV_8U);
-            final_image = stretch.reshape(0,height);
-            normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
-
-            saveImage(to_string(i)+"-after_shift");
-            final_image.release();
+                saveImage(to_string(i)+"-after_shift");
+                final_image.release();
+            }
             }
 
             if(verbose) cout << i << "\t" << best_shift << endl;
@@ -307,19 +285,23 @@ namespace tmpst{
      * !!NOTE: pixels_per_image CHANGES AFTER THIS IS RUN (straigtens image out)
      */
     void frameStream::createFinalFrame(int shift_amount){
+        cout << "=============" << endl;
+        cout << shift_amount << endl;
         //shift frame
-        cout << "cff will shift by: " << shift_amount << endl;
-        int total_shift = 0;
-        for(int i=1; i<frame_average; i++){
-            total_shift += shift_amount;
+        if(frame_average!=1){
 
-            indices[i] = shiftIndex(indices[i], total_shift);
+            int total_shift = 0;
+            for(int i=1; i<frame_average; i++){
+                total_shift += shift_amount;
+
+                indices[i] = shiftIndex(indices[i], total_shift);
+            }
+
+            //align frame
+            if(verbose) cout << endl << "ppi before: " << pixels_per_image << endl;
+            pixels_per_image = indices[1] - indices[0]; // SO BIG BRAIN
+            if(verbose) cout << "ppi after: " << pixels_per_image << endl;
         }
-
-        //align frame
-        if(verbose) cout << endl << "ppi before: " << pixels_per_image << endl;
-        pixels_per_image = indices[1] - indices[0]; // SO BIG BRAIN
-        if(verbose) cout << "ppi after: " << pixels_per_image << endl;
 
         // average frames
         Mat one_frame = averageFrames(indices);
@@ -372,7 +354,7 @@ namespace tmpst{
     // ===================================================================================
 
     bool frameStream::saveImage(string filename){
-        imwrite("data/"+filename+".jpg", final_image);
+        imwrite(output_directory+filename+".jpg", final_image);
         return true;
     }
 

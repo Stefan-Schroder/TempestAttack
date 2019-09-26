@@ -3,6 +3,7 @@
 #include "frameStream.h"
 #include <thread>
 #include <omp.h>
+#include <unordered_map>
 
 using namespace std;
 
@@ -63,7 +64,7 @@ namespace tmpst{
         bandwidth_multiples = 1;
     }
 
-    void tempest::process(){
+    void tempest::initializeBands(){
         bands = vector<tmpst::frameStream>(bandwidth_multiples);
 
         if(verbose) cout << endl << "Adding new recordings with base band: " << endl;
@@ -73,29 +74,32 @@ namespace tmpst{
 
             tmpst::frameStream newFrame(width, height, refresh,
                                         band_center,
-                                        frame_av_num, sample_rate, !verbose);
+                                        frame_av_num, sample_rate, verbose, name);
 
             bands[i] = newFrame;
         }
 
     }
 
-    void tempest::loadData(){
+    void tempest::processBands(){
 
         if(from_file){ // there can only be one band
-
+            // ====================== READING FROM FILE ==============================
             bands[0].loadDataFile(input_file, frame_ignore);
             int shifting = bands[0].processSamples(max_shift).first;
             cout << "tmpst: " << shifting << endl;
             bands[0].createFinalFrame(shifting);
-            bands[0].saveImage(name+to_string(bands[0].getFrequency()));
+            bands[0].saveImage("final_image-"+to_string(bands[0].getFrequency()));
 
         }else{
+            // ===================== READING FROM RECIEVER ============================
 
+            unordered_map<int, unsigned int> best_shifts; // storing the best shifts
 #pragma omp parallel for
             for(int i=0; i<bands.size(); i++){
 
 #pragma omp critical
+                //======== Loading file ==========
                 {
                 if(verbose) cout << endl << "Loading in data for band " << i << endl;
                 bands[i].loadDataRx(usrp, offset, channel, frame_ignore);
@@ -104,12 +108,24 @@ namespace tmpst{
 
                 if(verbose) cout << endl << "Processing data." << endl;
 
-                pair<int, double> shift = bands[i].processSamples(max_shift);
+                //======== Processing file ==========
+                pair<int, unsigned int> shift = bands[i].processSamples(max_shift);
                 if(verbose) cout << "Band " << i << " shifted by " << shift.first << " percentage of shifted frames " << double(shift.second) << endl;
-                bands[i].createFinalFrame(shift.first);
-                bands[i].saveImage(name+to_string(bands[i].getFrequency()));
+
+
+                //======== Finding best shift ==========
+#pragma omp critical
+                {
+                best_shifts[shift.first]++;
+                }
             }
 
+                //======== final processing file ==========
+            int shift_amount = mapMode(best_shifts).first;
+            for(int i=0; i<bands.size(); i++){
+                bands[i].createFinalFrame(shift_amount);
+                bands[i].saveImage("final_image-"+to_string(bands[i].getFrequency()));
+            }
 
         }
     }

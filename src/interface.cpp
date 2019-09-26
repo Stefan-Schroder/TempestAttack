@@ -1,16 +1,26 @@
+//UHD
 #include <uhd/utils/thread_priority.hpp>
 #include <uhd/utils/safe_main.hpp>
 #include <uhd/usrp/multi_usrp.hpp>
 #include <uhd/exception.hpp>
 #include <uhd/types/tune_request.hpp>
+//Program options
 #include <boost/program_options.hpp>
 #include <boost/format.hpp>
 #include <boost/thread.hpp>
+// Streams
 #include <iostream>
-#include <thread>
-#include <string>
+#include <fstream>
+//create a new file
+#include <bits/stdc++.h>
+#include <sys/stat.h> 
+#include <sys/types.h>
+// internal
 #include "tempest.h"
 #include "resconvert.h"
+// misc
+#include <thread>
+#include <string>
 
 namespace ops = boost::program_options;
 using namespace std;
@@ -74,7 +84,7 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
     uhd::set_thread_priority_safe();
 
     // Inputs
-    std::string addr, file, ant, subdev, ref, res_string, input_file;
+    string addr, folder, ant, subdev, ref, res_string, input_file, config_file;
     size_t channel;
     double rate, freq, gain, bw, lo_offset, refresh, setup_time, overlap;
     int multi, average_amount, width, height, frame_ignore, shift_max;
@@ -84,8 +94,9 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
     ops::options_description desc("Available Options");
     desc.add_options()
         ("help",                                                                                    "help message")
+        ("conf_file",   ops::value<std::string>(&config_file)-> default_value("config.ini"),        "Alternative config file")
         ("addr",        ops::value<std::string>(&addr)->        default_value("192.168.10.2"),      "address for the receiver")
-        ("file",        ops::value<std::string>(&file)->        default_value("image"),             "name of the file all information is dumped to")
+        ("folder",      ops::value<std::string>(&folder)->      default_value("data/"),             "name of the folder where all information is dumped to")
         ("res",         ops::value<std::string>(&res_string)->  default_value("1024x768"),          "resolution of the device you want to attack")
         ("refresh",     ops::value<double>(&refresh)->          default_value(75.024),              "refresh rate of the monitor you wish to attack")
         ("average",     ops::value<int>(&average_amount)->      default_value(2),                   "amount of frames to average together")
@@ -108,9 +119,12 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         ("x",                                                                                       "Use the unconverted resolution entered")
     ;
 
-    // clang-format on
     ops::variables_map var_map;
+    // pass command line arguments
     ops::store(ops::parse_command_line(argc, argv, desc), var_map);
+    // pass config file options
+    ifstream conf_file("config.ini");
+    ops::store(ops::parse_config_file(conf_file, desc), var_map);
     ops::notify(var_map);
 
     // print the help message
@@ -121,6 +135,7 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
                   << std::endl;
         return ~0;
     }
+    
 
     // ============================  Set variables ================================
 
@@ -133,12 +148,17 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         height = tmpst::getHeight(res_string,refresh);
         width = tmpst::getWidth(res_string,refresh);
         if(height == 0 || width == 0){
-            cerr << "Resolution does not exist. If you are sure this is the resolution enable --x (exact resolution)" << endl;
+            cerr << "Resolution " << res_string << " does not exist. If you are sure this is the resolution enable --x (exact resolution)" << endl;
             return -1;
         }
     }else {
-        width = stoi(res_string.substr(0,res_string.find('x')));
-        height = stoi(res_string.substr(res_string.find('x')+1));
+        try{
+            width = stoi(res_string.substr(0,res_string.find('x')));
+            height = stoi(res_string.substr(res_string.find('x')+1));
+        }catch(exception& e){
+            cerr << "The width and height need to be written as --res=1234x321" << endl;
+            return -1;
+        }
     }
     if(verbose) cout << "width: " << width << " height: " << height << endl;
 
@@ -227,17 +247,18 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         }
 
         // Transmit data to be processed
-        main_tempest = new tmpst::tempest(usrp, file, width, height, refresh, multi, average_amount, overlap, freq, rate, lo_offset, channel ,frame_ignore, shift_max, verbose); 
+        main_tempest = new tmpst::tempest(usrp, folder, width, height, refresh, multi, average_amount, overlap, freq, rate, lo_offset, channel ,frame_ignore, shift_max, verbose); 
 
 
     }else{
         // Reading in a file
-        main_tempest = new tmpst::tempest(input_file, file, width, height, refresh, average_amount, rate, frame_ignore, shift_max, verbose);
+        main_tempest = new tmpst::tempest(input_file, folder, width, height, refresh, average_amount, rate, frame_ignore, shift_max, verbose);
 
     }
 
-    main_tempest->process();
-    main_tempest->loadData();
+    main_tempest->initializeBands();
+    main_tempest->processBands();
+    main_tempest->combineBands();
 
     delete main_tempest;
 

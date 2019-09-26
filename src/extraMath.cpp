@@ -3,6 +3,7 @@
 #include <opencv2/core/utility.hpp>
 
 using namespace cv;
+using namespace std;
 
 namespace tmpst{
 
@@ -27,8 +28,7 @@ namespace tmpst{
     void shiftImage(cv::Mat image_in, cv::Mat & image_out, int x, int y){
         // === shift columns (x) ===
         
-        bool left = x < 0;
-
+        bool left = x < 0; 
         if(left && x!=0){
             x *= -1; //invert the shift
             x = x%image_out.cols;
@@ -62,5 +62,25 @@ namespace tmpst{
 
     }
 
+
+    pair<int,unsigned int> mapMode(std::unordered_map<int, unsigned int> map){
+        int max_index = 0;
+        unsigned int max_value = 0;
+
+        auto begin = map.begin(), end = map.end();
+
+        while(begin!=end){
+            cout << "shift: " << begin->first << " has " << begin->second << endl;
+            if(begin->second > max_value){
+                
+                max_index = begin->first;
+                max_value = begin->second;
+            }
+
+            begin++;
+
+        }
+        return make_pair(max_index, max_value);
+    }
 
 }

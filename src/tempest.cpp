@@ -4,8 +4,13 @@
 #include <thread>
 #include <omp.h>
 #include <unordered_map>
+#include <opencv2/core/utility.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/opencv.hpp>
 
 using namespace std;
+using namespace cv;
 
 namespace tmpst{
 
@@ -130,5 +135,61 @@ namespace tmpst{
         }
     }
 
+    void tempest::combineBands(){
+        Mat main_band = bands[0].getFinalImage();
+        
+        int xboard = 300 , yboard = 300;
+
+        Mat big_band = Mat::zeros(height+yboard, width+xboard, CV_8U);
+
+        main_band.copyTo(big_band(Rect((big_band.cols - main_band.cols)/2, (big_band.rows - main_band.rows)/2, main_band.cols, main_band.rows)));
+
+        bands[0].saveImage("shifted_image-"+to_string(bands[0].getFrequency()));
+        //imwrite("0-"+to_string(bands[0].getFrequency())+".jpg", big_band);
+        for(int i=1; i<bands.size(); i++){
+            Mat next_band = bands[i].getFinalImage();
+            int result_cols = big_band.cols - next_band.cols + 1;
+            int result_rows = big_band.rows - next_band.rows + 1;
+
+            Mat result = Mat::zeros(result_rows, result_cols, CV_32F);
+
+            // match then normalize
+            matchTemplate( big_band, next_band, result, CV_TM_SQDIFF_NORMED);
+
+            // normalize
+            normalize(result, result, 0, 255, NORM_MINMAX, -1, Mat() );
+
+            double minVal, maxVal;
+            Point minLoc, maxLoc;
+            Point matchLoc;
+
+            minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat());
+
+            matchLoc = minLoc;
+
+            //cout << " corrolation shift: " << matchLoc.x << "x" << matchLoc.y << endl;
+
+            //test
+            /*
+            Mat other_big = Mat::zeros(height+yboard, width+xboard, CV_8U);
+            rectangle( big_band, matchLoc, Point( matchLoc.x + next_band.cols , matchLoc.y + next_band.rows ), Scalar::all(0), 2, 8, 0 );
+
+            next_band.copyTo(other_big(Rect(matchLoc.x, matchLoc.y, next_band.cols, next_band.rows )));
+            imshow("big image", big_band);
+            waitKey(0);
+            imwrite(to_string(i)+"-"+to_string(bands[0].getFrequency())+".jpg", other_big);
+            //stop test
+            */
+
+            shiftImage(next_band.clone(), next_band, -(xboard/2 - matchLoc.x), -(yboard/2 - matchLoc.y));
+
+            bands[i].saveImage("shifted_image-"+to_string(bands[i].getFrequency()));
+
+        }
+
+        // combine frequencys
+        //bands[0].shiftFrequency(0.3);
+
+    }
 
 }

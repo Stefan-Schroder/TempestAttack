@@ -48,6 +48,7 @@ namespace tmpst{
     }
 
     double frameStream::getFrequency(){ return frequency; }
+    Mat frameStream::getFinalImage(){ return final_image; }
     // ===================================================================================
     // =============================== LOADING DATA ======================================
     // ===================================================================================
@@ -430,6 +431,48 @@ namespace tmpst{
         minimums.second = min_location.y;
 
         return minimums;
+    }
+
+    // =================================================================================== 
+    // ============================== FFT PROCESSORS =====================================
+    // =================================================================================== 
+
+    void frameStream::shiftFrequency(double amount){
+
+        int full_pixel_size = width*height;
+
+        //unwrap image
+        Mat unwrap_int = final_image.reshape(0,1);
+        Mat unwrap;
+        unwrap_int.convertTo(unwrap, CV_32F); 
+        unwrap_int.release();
+
+        //dft array
+        Mat real = Mat::zeros(full_pixel_size,0, CV_32F);
+        //Mat imag = Mat::zeros(height*width,0, CV_32F);
+        dft(unwrap,real);
+        //dft(unwrap,imag,DFT_COMPLEX_OUTPUT,0);
+        //dft(unwrap,real,,0);
+
+
+        //half the array
+        //shift array
+        int freq_shift_amount = int(round(amount/refresh));
+        cout << "shift amount" << endl;
+
+        Mat half_shifted = Mat::zeros(full_pixel_size/2,0,CV_32F);
+        real.rowRange(0,full_pixel_size/2-freq_shift_amount).copyTo(half_shifted.rowRange(freq_shift_amount, full_pixel_size/2));
+        
+        //image_in.colRange(0,x).copyTo(image_out.colRange(image_out.cols-x, image_out.cols));
+
+        //recombine array
+        Mat recombine = 
+        //idf array
+        //reshape image
+
+
+        //final_image = stretch.reshape(0,height);
+
     }
 
 }

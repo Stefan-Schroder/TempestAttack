@@ -1,6 +1,5 @@
 #ifndef _FRAMESTREAM_H_
 #define _FRAMESTREAM_H_
-
 #include <uhd/usrp/multi_usrp.hpp>
 #include <opencv2/core/utility.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -63,6 +62,8 @@ namespace tmpst{
                     std::string dir_name);
         
         double getFrequency();
+
+        cv::Mat getFinalImage();
         // =============================== LOADING DATA ======================================
 
         bool loadDataRx(uhd::usrp::multi_usrp::sptr usrp, double offset, size_t channel, int frame_ignore);
@@ -78,6 +79,10 @@ namespace tmpst{
         // ==================================== EXTRA  =======================================
 
         bool saveImage(std::string filename);
+        
+        // ============================== FFT PROCESSORS =====================================
+
+        void shiftFrequency(float amount);
 
 
     };

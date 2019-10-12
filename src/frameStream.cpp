@@ -67,6 +67,7 @@ namespace tmpst{
                 input_stream.read((char *)&Q_sample, sizeof(short))){
             
             all_samples.at<short>(0,counter++) = sqrt(pow(I_sample,2)+pow(Q_sample,2));
+            //all_samples.at<short>(0,counter++) = I_sample+Q_sample;//sqrt(pow(I_sample,2)+pow(Q_sample,2));
 
             if(input_stream.peek() == EOF){
                 cout << "Input file not long enough for current average frame amount/sample rate" << endl;
@@ -223,7 +224,7 @@ namespace tmpst{
      */
     unordered_map<int, unsigned int> frameStream::corrolateFrames(int shift_max){
         // Average all the samples to get rid of noise
-        int window = 3;
+        int window = 1; // can filter before corrolating 
         Mat average_filter = Mat::ones(1,window, CV_32F)/window;
         average_filter = average_filter.mul(average_filter);
 
@@ -249,7 +250,6 @@ namespace tmpst{
             for(int j=-shift_max; j<=shift_max; j++){
                 Mat shifting_frame = makeMatrix(shiftIndex(indices[i],j), filtered_samples);
                 double corr = corrolation(shifting_frame, makeMatrix(indices[i-1], filtered_samples));
-                //if(abs(corr) > highest_corr){
                 if(corr > highest_corr){
                     highest_corr = corr;
                     best_shift = j;
@@ -260,8 +260,8 @@ namespace tmpst{
             {
             shift_amount_map[best_shift]++;
 
-            if(verbose){ // save frames
-                Mat one_frame = makeMatrix(shiftIndex(indices[i],best_shift*i), filtered_samples);
+            if(verbose){ // save frames after shifts
+                Mat one_frame = makeMatrix(shiftIndex(indices[i],best_shift*i), all_samples);
                 Mat stretch = Mat(1,width*height, CV_16U);
                 resize(one_frame, stretch, Size(width*height,1));
                 final_image = Mat::zeros(height, width, CV_8U);
@@ -286,8 +286,6 @@ namespace tmpst{
      * !!NOTE: pixels_per_image CHANGES AFTER THIS IS RUN (straigtens image out)
      */
     void frameStream::createFinalFrame(int shift_amount){
-        cout << "=============" << endl;
-        cout << shift_amount << endl;
         //shift frame
         if(frame_average!=1){
 
@@ -309,23 +307,30 @@ namespace tmpst{
 
         float multiplier = writeMiniFrame(one_frame);
 
-        //clear memory of all samples
+        //clear memory of all samples as it isnt needed
         all_samples.release();
 
         // stretch image to fit into final matrix resolution
         Mat stretch = Mat(1,width*height, CV_16U);
-        resize(one_frame, stretch, Size(width*height,1));
+        resize(one_frame, stretch, Size(width*height,1)); // interpolates samples
 
         final_image = Mat::zeros(height, width, CV_8U);
 
-        final_image = stretch.reshape(0,height);
-        //final_image = imageCopy;
+        final_image = stretch.reshape(0,height); // reshapes array into 2D image
 
         // normalize frame to usigned char
         normalize(final_image, final_image, 0, 255, NORM_MINMAX, CV_8UC1);
 
+        if(interlaced){
+            // compensate for interlaced display
+            final_image = reconInterlace(final_image.clone()); 
+            final_mini_image = reconInterlace(final_mini_image.clone()); 
+        }
+
+        if(verbose) saveImage("uncenterd_image-"+to_string(getFrequency()));
+
         // Center image
-        pair<int, int> amount = centerImage(final_mini_image); // centers the smaller 
+        pair<int, int> amount = centerImage(final_mini_image); // finds shifts to center mini frame
 
         shiftImage(final_image.clone(), final_image, -amount.first*multiplier, -amount.second*multiplier);
 
@@ -334,6 +339,8 @@ namespace tmpst{
     /**
      * Averages the frames from all_samples together to make the final array
      * The average array is made using vector of starting indices of each frame
+     * 
+     * returns a one dimentional stream of samples of display
      */
     Mat frameStream::averageFrames(std::vector<int> & indices){
         Mat sum_frames = Mat::zeros(1, pixels_per_image, CV_32F); //larger size to handle summantion
@@ -354,17 +361,30 @@ namespace tmpst{
     // ==================================== EXTRA  =======================================
     // ===================================================================================
 
+    /**
+     * Saves final_image, used for public access.
+     */
     bool frameStream::saveImage(string filename){
         imwrite(output_directory+filename+".jpg", final_image);
         return true;
     }
 
+    /**
+     * Write a smaller version of the main frame, that contains the same information received,
+     * but is not interpolated to as many pixels as the final_image.
+     * Made to improve efficiency on further filtering and templating, as well as centering frame.
+     *
+     * returns factor to multiply with when converting cordinates from mini_image to final_image
+     */
     float frameStream::writeMiniFrame(Mat & samples){
         //reduce the amount of pixels for miniframe
         pair<int, int> reduced(width, height);
 
-        // reduction lambda
-        //auto reduce = [this](pair<int, int> frac)->pair<int,int>{
+        /**
+         * Reduction lambda
+         * Recursive method for finding the lowest command multiple of width and height
+         * that is larger than current pixels per fram.
+         */
         function<pair<int,int>(pair<int,int>)> reduce = [this, &reduce](pair<int, int> frac)->pair<int,int>{
             for(int i=2; i<frac.first/2; i++){
                 if(frac.first%i==0 && frac.second%i==0){
@@ -381,7 +401,7 @@ namespace tmpst{
 
         };
 
-        reduced = reduce(reduced);
+        reduced = reduce(reduced); // wow, what a line
 
         if(verbose) cout << endl << "Smaller resolution is: " << reduced.first << "x" << reduced.second << endl;
 
@@ -404,11 +424,13 @@ namespace tmpst{
         pair<int,int> minimums;
         
         // define filters
+        //int xwindow = 50;
         int xwindow = 100;
         Mat xfilter = Mat::ones(1,xwindow, CV_8U)/xwindow;
         xfilter = xfilter.mul(xfilter);
         
-        int ywindow = 10;
+        //int ywindow = 10;
+        int ywindow = 20;
         Mat yfilter = Mat::ones(1,ywindow, CV_8U)/ywindow;
         yfilter = yfilter.mul(yfilter);
 
@@ -425,18 +447,36 @@ namespace tmpst{
         Point min_location, max_location;
 
         minMaxLoc(x_average, &min, &max, &min_location, &max_location);
-        minimums.first = min_location.x;
+        minimums.first = (inverted) ? min_location.x : max_location;
 
         minMaxLoc(y_average, &min, &max, &min_location, &max_location);
-        minimums.second = min_location.y;
+        minimums.second = (inverted) ? min_location.y : max_location.y;
 
         return minimums;
+    }
+
+    /**
+     * Combines the two half frames, now present in final_frame (due to half the refresh), into one.
+     */
+    Mat frameStream::reconInterlace(Mat interlaced){
+
+        Mat reconstructed = Mat::zeros(height, width, CV_8U);
+
+        int i_height = interlaced.rows();
+
+        for(int n=0; n<i_height; n++){
+            reconstructed.row(n) = interlaced.row(floor(float(n)/2) + ceil(float(i_height)/2) * (n % 2));
+        }
+
+        return reconstructed;
     }
 
     // =================================================================================== 
     // ============================== FFT PROCESSORS =====================================
     // =================================================================================== 
 
+    /*
+     * Matlab code never worked well enough
     void frameStream::shiftFrequency(double amount){
 
         int full_pixel_size = width*height;
@@ -466,7 +506,7 @@ namespace tmpst{
         //image_in.colRange(0,x).copyTo(image_out.colRange(image_out.cols-x, image_out.cols));
 
         //recombine array
-        Mat recombine = 
+        //Mat recombine = 
         //idf array
         //reshape image
 
@@ -474,5 +514,6 @@ namespace tmpst{
         //final_image = stretch.reshape(0,height);
 
     }
+    */
 
 }

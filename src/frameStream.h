@@ -29,6 +29,8 @@ namespace tmpst{
         double sample_rate;
         int frame_average;
         bool verbose;
+        bool inverted;
+        bool interlaced;
         std::string output_directory;
 
         // ================================= CALCULATED =======================================
@@ -78,11 +80,13 @@ namespace tmpst{
 
         // ==================================== EXTRA  =======================================
 
+        cv::Mat reconInterlace(cv::Mat interlaced);
+
         bool saveImage(std::string filename);
         
         // ============================== FFT PROCESSORS =====================================
 
-        void shiftFrequency(float amount);
+        //void shiftFrequency(double amount);
 
 
     };

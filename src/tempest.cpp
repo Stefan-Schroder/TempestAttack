@@ -125,7 +125,7 @@ namespace tmpst{
                 }
             }
 
-                //======== final processing file ==========
+            //======== final processing file ==========
             int shift_amount = mapMode(best_shifts).first;
             for(int i=0; i<bands.size(); i++){
                 bands[i].createFinalFrame(shift_amount);
@@ -138,14 +138,15 @@ namespace tmpst{
     void tempest::combineBands(){
         Mat main_band = bands[0].getFinalImage();
         
-        int xboard = 300 , yboard = 300;
+        int xboard = 600, yboard = 200;
 
         Mat big_band = Mat::zeros(height+yboard, width+xboard, CV_8U);
+        randn(big_band, Scalar(5), Scalar(20));
 
         main_band.copyTo(big_band(Rect((big_band.cols - main_band.cols)/2, (big_band.rows - main_band.rows)/2, main_band.cols, main_band.rows)));
 
         bands[0].saveImage("shifted_image-"+to_string(bands[0].getFrequency()));
-        //imwrite("0-"+to_string(bands[0].getFrequency())+".jpg", big_band);
+
         for(int i=1; i<bands.size(); i++){
             Mat next_band = bands[i].getFinalImage();
             int result_cols = big_band.cols - next_band.cols + 1;
@@ -154,7 +155,8 @@ namespace tmpst{
             Mat result = Mat::zeros(result_rows, result_cols, CV_32F);
 
             // match then normalize
-            matchTemplate( big_band, next_band, result, CV_TM_SQDIFF_NORMED);
+            //matchTemplate( big_band, next_band, result, CV_TM_SQDIFF_NORMED);
+            matchTemplate( big_band, next_band, result, CV_TM_CCOEFF_NORMED);
 
             // normalize
             normalize(result, result, 0, 255, NORM_MINMAX, -1, Mat() );
@@ -165,21 +167,7 @@ namespace tmpst{
 
             minMaxLoc( result, &minVal, &maxVal, &minLoc, &maxLoc, Mat());
 
-            matchLoc = minLoc;
-
-            //cout << " corrolation shift: " << matchLoc.x << "x" << matchLoc.y << endl;
-
-            //test
-            /*
-            Mat other_big = Mat::zeros(height+yboard, width+xboard, CV_8U);
-            rectangle( big_band, matchLoc, Point( matchLoc.x + next_band.cols , matchLoc.y + next_band.rows ), Scalar::all(0), 2, 8, 0 );
-
-            next_band.copyTo(other_big(Rect(matchLoc.x, matchLoc.y, next_band.cols, next_band.rows )));
-            imshow("big image", big_band);
-            waitKey(0);
-            imwrite(to_string(i)+"-"+to_string(bands[0].getFrequency())+".jpg", other_big);
-            //stop test
-            */
+            matchLoc = maxLoc;
 
             shiftImage(next_band.clone(), next_band, -(xboard/2 - matchLoc.x), -(yboard/2 - matchLoc.y));
 
@@ -187,9 +175,20 @@ namespace tmpst{
 
         }
 
-        // combine frequencys
-        //bands[0].shiftFrequency(0.3);
+        // combine bands 
+        Mat combine_image = bands[bands.size()-1].getFinalImage().clone(); //Mat::zeros(height,width, CV_8U);
+        for(int i=bands.size()-2; i>=0; i--){
+            combine_image = (combine_image+bands[i].getFinalImage())/2;
+        }
+
+        //normalize the result
+        normalize(combine_image, combine_image, 0, 255, NORM_MINMAX, CV_8UC1);
+
+        //save final image
+        imwrite("final_image.jpg", combine_image);
 
     }
+
+
 
 }

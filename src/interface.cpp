@@ -89,6 +89,8 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
     double rate, freq, gain, bw, lo_offset, refresh, setup_time, overlap;
     int multi, average_amount, width, height, frame_ignore, shift_max;
     bool exact_resolution = false;
+    bool interlaced = false;
+    bool inverted = false;
 
     // Handeling commandline ops
     ops::options_description desc("Available Options");
@@ -115,6 +117,8 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         ("input",       ops::value<std::string>(&input_file),                                       "filename of raw short IQ samples, used instead of receiver")
         ("ignore",      ops::value<int>(&frame_ignore)->        default_value(0),                   "specify how many frames to ignore from the received data (can help in certain cases)")
         ("max_shift",   ops::value<int>(&shift_max)->           default_value(200),                 "maximum amount each frame can shift to align each other (higher amount make it slower)")
+        ("interlaced",                                                                              "select if the display you are reconstructing is an interlaced scan display")
+        ("inverted",                                                                                "select if the display is inverted, resulting in the centering being incorrect")
         ("v",                                                                                       "print all information")
         ("x",                                                                                       "Use the unconverted resolution entered")
     ;
@@ -141,7 +145,8 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
 
     verbose = var_map.count("v") > 0;
     exact_resolution = var_map.count("x");
-
+    interlaced = var_map.count("interlaced");
+    inverted = var_map.count("inverted");
 
     // string resolution to int
     if(!exact_resolution){
@@ -247,12 +252,13 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
         }
 
         // Transmit data to be processed
-        main_tempest = new tmpst::tempest(usrp, folder, width, height, refresh, multi, average_amount, overlap, freq, rate, lo_offset, channel ,frame_ignore, shift_max, verbose); 
+        main_tempest = new tmpst::tempest(usrp, folder, width, height, refresh, multi, average_amount, overlap, freq, rate, lo_offset, channel ,frame_ignore, shift_max, inverted, interlaced, verbose); 
 
+                        
 
     }else{
         // Reading in a file
-        main_tempest = new tmpst::tempest(input_file, folder, width, height, refresh, average_amount, rate, frame_ignore, shift_max, verbose);
+        main_tempest = new tmpst::tempest(input_file, folder, width, height, refresh, average_amount, rate, frame_ignore, shift_max, inverted, interlaced, verbose);
 
     }
 

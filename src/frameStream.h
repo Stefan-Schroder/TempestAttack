@@ -60,6 +60,8 @@ namespace tmpst{
                     double refresh, double frequency, 
                     int frame_average,
                     double sample_rate,
+                    bool inverted,
+                    bool interlaced,
                     bool verbose,
                     std::string dir_name);
         

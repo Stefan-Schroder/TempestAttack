@@ -23,6 +23,8 @@ namespace tmpst{
                         size_t channel,
                         int frame_ignore,
                         int max_shift,
+                        bool inverted,
+                        bool interlaced,
                         bool verbose):
 
                             usrp(usrp),
@@ -35,6 +37,8 @@ namespace tmpst{
                             channel(channel),
                             frame_ignore(frame_ignore),
                             max_shift(max_shift), 
+                            interlaced(interlaced),
+                            inverted(inverted),
                             verbose(verbose){
 
         full_spectrum_size = width*height*refresh;
@@ -51,6 +55,8 @@ namespace tmpst{
                         double sample_rate,
                         int frame_ignore,
                         int max_shift,
+                        bool inverted,
+                        bool interlaced,
                         bool verbose):
 
                             input_file(input_file),
@@ -60,6 +66,8 @@ namespace tmpst{
                             sample_rate(sample_rate),
                             frame_ignore(frame_ignore),
                             max_shift(max_shift), 
+                            interlaced(interlaced),
+                            inverted(inverted),
                             verbose(verbose){
 
         full_spectrum_size = width*height*refresh;
@@ -79,7 +87,7 @@ namespace tmpst{
 
             tmpst::frameStream newFrame(width, height, refresh,
                                         band_center,
-                                        frame_av_num, sample_rate, verbose, name);
+                                        frame_av_num, sample_rate, inverted, interlaced, verbose, name);
 
             bands[i] = newFrame;
         }

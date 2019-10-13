@@ -25,6 +25,8 @@ namespace tmpst{
                         double frequency, 
                         int frame_average,
                         double sample_rate,
+                        bool inverted,
+                        bool interlaced,
                         bool verbose,
                         string dir_name):
 
@@ -33,6 +35,8 @@ namespace tmpst{
                         frame_average(frame_average),
                         sample_rate(sample_rate),
                         verbose(verbose),
+                        inverted(inverted),
+                        interlaced(interlaced),
                         output_directory(dir_name){
 
         pixels_per_image = round(sample_rate/refresh);
@@ -447,7 +451,7 @@ namespace tmpst{
         Point min_location, max_location;
 
         minMaxLoc(x_average, &min, &max, &min_location, &max_location);
-        minimums.first = (inverted) ? min_location.x : max_location;
+        minimums.first = (inverted) ? min_location.x : max_location.x;
 
         minMaxLoc(y_average, &min, &max, &min_location, &max_location);
         minimums.second = (inverted) ? min_location.y : max_location.y;
@@ -462,7 +466,7 @@ namespace tmpst{
 
         Mat reconstructed = Mat::zeros(height, width, CV_8U);
 
-        int i_height = interlaced.rows();
+        int i_height = interlaced.rows;
 
         for(int n=0; n<i_height; n++){
             reconstructed.row(n) = interlaced.row(floor(float(n)/2) + ceil(float(i_height)/2) * (n % 2));

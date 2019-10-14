@@ -8,9 +8,9 @@ using namespace std;
 namespace tmpst{
 
     /**
-     * corrolation of two matrices
+     * correlation of two matrices
      */
-    double corrolation(const cv::Mat & one, const cv::Mat & two){
+    double correlation(const cv::Mat & one, const cv::Mat & two){
         /* Poisons correlation
         double answer = one.cols*sum(one.mul(two))[0];
         answer -= sum(one)[0]*sum(two)[0];

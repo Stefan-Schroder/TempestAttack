@@ -190,7 +190,8 @@ namespace tmpst{
         }
 
         //normalize the result
-        normalize(combine_image, combine_image, 0, 255, NORM_MINMAX, CV_8UC1);
+        //normalize(combine_image, combine_image, 0, 255, NORM_MINMAX, CV_8UC1);
+        normalize(combine_image, combine_image, 255, 0, NORM_MINMAX, CV_8UC1);
 
         //save final image
         imwrite(name+"combined_bands.jpg", combine_image);

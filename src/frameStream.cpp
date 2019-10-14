@@ -239,7 +239,7 @@ namespace tmpst{
 
         if(verbose) cout << "sizes of samples: " << all_samples.cols << ", " << filtered_samples.cols << endl;
 
-        // ========Start corrolation process==========
+        // ========Start correlation process==========
         unordered_map<int, unsigned int> shift_amount_map; // cant be ordered because constantly changing
 
         //calculate the best shifts (first frame does not shift)
@@ -256,7 +256,7 @@ namespace tmpst{
 
             for(int j=-shift_max; j<=shift_max; j++){
                 Mat shifting_frame = makeMatrix(shiftIndex(indices[i],j), filtered_samples);
-                double corr = inverstion_mult*corrolation(shifting_frame, makeMatrix(indices[i-1], filtered_samples));
+                double corr = inverstion_mult*correlation(shifting_frame, makeMatrix(indices[i-1], filtered_samples));
                 if(corr > highest_corr){
                     highest_corr = corr;
                     best_shift = j;

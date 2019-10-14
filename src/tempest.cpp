@@ -77,6 +77,9 @@ namespace tmpst{
         bandwidth_multiples = 1;
     }
 
+    /**
+     * Initializes center frequencies for all bands and adds the to the band waggon :D
+     */
     void tempest::initializeBands(){
         bands = vector<tmpst::frameStream>(bandwidth_multiples);
 
@@ -94,6 +97,9 @@ namespace tmpst{
 
     }
 
+    /**
+     * After data has been read the bands can now process their raw data into their respective frames
+     */
     void tempest::processBands(){
 
         if(from_file){ // there can only be one band
@@ -107,7 +113,7 @@ namespace tmpst{
         }else{
             // ===================== READING FROM RECIEVER ============================
 
-            unordered_map<int, unsigned int> best_shifts; // storing the best shifts
+            unordered_map<int, unsigned int> best_shifts; // storing the best shifts so all shifts are consistant
 #pragma omp parallel for
             for(int i=0; i<bands.size(); i++){
 
@@ -143,9 +149,14 @@ namespace tmpst{
         }
     }
 
+    /**
+     * Combines the bands into one final frame.
+     * Uses templateing to align the frames, and then averages the results.
+     */
     void tempest::combineBands(){
         Mat main_band = bands[0].getFinalImage();
         
+        //max shifts possible
         int xboard = 600, yboard = 200;
 
         Mat big_band = Mat::zeros(height+yboard, width+xboard, CV_8U);
@@ -163,7 +174,6 @@ namespace tmpst{
             Mat result = Mat::zeros(result_rows, result_cols, CV_32F);
 
             // match then normalize
-            //matchTemplate( big_band, next_band, result, CV_TM_SQDIFF_NORMED);
             matchTemplate( big_band, next_band, result, CV_TM_CCOEFF_NORMED);
 
             // normalize

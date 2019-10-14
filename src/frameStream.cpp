@@ -58,6 +58,9 @@ namespace tmpst{
     // =============================== LOADING DATA ======================================
     // ===================================================================================
 
+    /**
+     * Loads in frame data from a binary file
+     */
     bool frameStream::loadDataFile(string filename, int frame_ignore){
         if(verbose) cout << filename << endl;
         //reading in file
@@ -80,7 +83,6 @@ namespace tmpst{
                 cout << "This can happen because you need to record one more frame than you can use (for shifting purposes" << endl;
                 return false;
             }
-
         }
 
         input_stream.close();
@@ -88,6 +90,9 @@ namespace tmpst{
         return true;
     }
 
+    /**
+     * Reads in data from the receiver.
+     */
     bool frameStream::loadDataRx(uhd::usrp::multi_usrp::sptr usrp, double offset, size_t channel, int frame_ignore){
         if(verbose) cout << "Scanning frequency: " << frequency/1000000 << "MHz" << endl;
         uhd::tune_request_t tune_request(frequency, offset);
@@ -215,6 +220,9 @@ namespace tmpst{
 
     }
 
+    /**
+     * just adds shifts to starting point, but performs some checks first
+     */
     int frameStream::shiftIndex(int index, int amount){
         amount = amount%pixels_per_image;
         if(index+amount<0){
@@ -429,6 +437,10 @@ namespace tmpst{
         return float(width)/float(reduced.first);
     }
 
+    /**
+     * Centers the image within the frame
+     * returns the amounts that need to be shifted by.
+     */
     pair<int, int> frameStream::centerImage(Mat & image){
         pair<int,int> minimums;
         
@@ -487,40 +499,6 @@ namespace tmpst{
     /*
      * Matlab code never worked well enough so didnt finish cpp implementation
     void frameStream::shiftFrequency(double amount){
-
-        int full_pixel_size = width*height;
-
-        //unwrap image
-        Mat unwrap_int = final_image.reshape(0,1);
-        Mat unwrap;
-        unwrap_int.convertTo(unwrap, CV_32F); 
-        unwrap_int.release();
-
-        //dft array
-        Mat real = Mat::zeros(full_pixel_size,0, CV_32F);
-        //Mat imag = Mat::zeros(height*width,0, CV_32F);
-        dft(unwrap,real);
-        //dft(unwrap,imag,DFT_COMPLEX_OUTPUT,0);
-        //dft(unwrap,real,,0);
-
-
-        //half the array
-        //shift array
-        int freq_shift_amount = int(round(amount/refresh));
-        cout << "shift amount" << endl;
-
-        Mat half_shifted = Mat::zeros(full_pixel_size/2,0,CV_32F);
-        real.rowRange(0,full_pixel_size/2-freq_shift_amount).copyTo(half_shifted.rowRange(freq_shift_amount, full_pixel_size/2));
-        
-        //image_in.colRange(0,x).copyTo(image_out.colRange(image_out.cols-x, image_out.cols));
-
-        //recombine array
-        //Mat recombine = 
-        //idf array
-        //reshape image
-
-
-        //final_image = stretch.reshape(0,height);
 
     }
     */

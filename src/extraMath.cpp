@@ -11,13 +11,16 @@ namespace tmpst{
      * corrolation of two matrices
      */
     double corrolation(const cv::Mat & one, const cv::Mat & two){
+        /* Poisons correlation
         double answer = one.cols*sum(one.mul(two))[0];
         answer -= sum(one)[0]*sum(two)[0];
         answer /= sqrt(
                 (one.cols*sum(one.mul(one))[0] - pow(sum(one)[0],2)) *
-                (two.cols*sum(two.mul(two))[0]-pow(sum(two)[0],2))
+                (two.cols*sum(two.mul(two))[0] - pow(sum(two)[0],2))
                 );
+        */
 
+        double answer = sum(one.mul(two))[0];
 
         return answer;
     }

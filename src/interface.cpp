@@ -145,7 +145,10 @@ int UHD_SAFE_MAIN(int argc, char * argv[]){
 
     verbose = var_map.count("v") > 0;
     exact_resolution = var_map.count("x");
-    interlaced = var_map.count("interlaced");
+    if(var_map.count("interlaced")){
+        interlaced = var_map.count("interlaced");
+        refresh /= 2;
+    }
     inverted = var_map.count("inverted");
 
     // string resolution to int

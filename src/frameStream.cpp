@@ -6,6 +6,7 @@
 #include <uhd/usrp/multi_usrp.hpp>
 #include <fstream>
 #include <iterator>
+#include <climits>
 #include <vector>
 #include "omp.h"
 #include <functional>
@@ -242,26 +243,29 @@ namespace tmpst{
         unordered_map<int, unsigned int> shift_amount_map; // cant be ordered because constantly changing
 
         //calculate the best shifts (first frame does not shift)
-        if(verbose) cout << endl << "Frame:\tShifted" << endl;
 
-        //this parallelism may not be worth it
-#pragma omp parallel for
+        //uncompent both #pragma to enable omp threads for this
+//#pragma omp parallel for
         for(int i=frame_average-1; i>=1; i--){
 
-            double highest_corr = 0;
+            // if the polarization of the reconstruction inverst sample the correlation should be inverted
+            int inverstion_mult = (inverted) ? -1 : 1; 
+
+            double highest_corr = -numeric_limits<double>::max();
             int best_shift = 0;
 
             for(int j=-shift_max; j<=shift_max; j++){
                 Mat shifting_frame = makeMatrix(shiftIndex(indices[i],j), filtered_samples);
-                double corr = corrolation(shifting_frame, makeMatrix(indices[i-1], filtered_samples));
+                double corr = inverstion_mult*corrolation(shifting_frame, makeMatrix(indices[i-1], filtered_samples));
                 if(corr > highest_corr){
                     highest_corr = corr;
                     best_shift = j;
                 }
             }
 
-#pragma omp critical
+//#pragma omp critical
             {
+
             shift_amount_map[best_shift]++;
 
             if(verbose){ // save frames after shifts
@@ -275,6 +279,7 @@ namespace tmpst{
                 saveImage(to_string(i)+"-after_shift");
                 final_image.release();
             }
+
             }
 
             if(verbose) cout << i << "\t" << best_shift << endl;
@@ -451,10 +456,10 @@ namespace tmpst{
         Point min_location, max_location;
 
         minMaxLoc(x_average, &min, &max, &min_location, &max_location);
-        minimums.first = (inverted) ? min_location.x : max_location.x;
+        minimums.first = (inverted) ? max_location.x : min_location.x;
 
         minMaxLoc(y_average, &min, &max, &min_location, &max_location);
-        minimums.second = (inverted) ? min_location.y : max_location.y;
+        minimums.second = (inverted) ? max_location.y : min_location.y;
 
         return minimums;
     }
@@ -469,7 +474,7 @@ namespace tmpst{
         int i_height = interlaced.rows;
 
         for(int n=0; n<i_height; n++){
-            reconstructed.row(n) = interlaced.row(floor(float(n)/2) + ceil(float(i_height)/2) * (n % 2));
+            interlaced.row(floor(float(n)/2) + ceil(float(i_height)/2) * (n % 2)).copyTo(reconstructed.row(n));
         }
 
         return reconstructed;
@@ -480,7 +485,7 @@ namespace tmpst{
     // =================================================================================== 
 
     /*
-     * Matlab code never worked well enough
+     * Matlab code never worked well enough so didnt finish cpp implementation
     void frameStream::shiftFrequency(double amount){
 
         int full_pixel_size = width*height;

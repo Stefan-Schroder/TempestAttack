@@ -183,7 +183,7 @@ namespace tmpst{
 
         }
 
-        // combine bands 
+        // combine bands (weighted average of frames, ie first band is 50% second 25% third 12.5% etc)
         Mat combine_image = bands[bands.size()-1].getFinalImage().clone(); //Mat::zeros(height,width, CV_8U);
         for(int i=bands.size()-2; i>=0; i--){
             combine_image = (combine_image+bands[i].getFinalImage())/2;
@@ -193,7 +193,7 @@ namespace tmpst{
         normalize(combine_image, combine_image, 0, 255, NORM_MINMAX, CV_8UC1);
 
         //save final image
-        imwrite("final_image.jpg", combine_image);
+        imwrite(name+"combined_bands.jpg", combine_image);
 
     }
 
